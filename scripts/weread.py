@@ -109,12 +109,15 @@ def get_review_list(bookId):
 def check(bookId):
     """检查是否已经插入过 如果已经插入了就删除"""
     filter = {"property": "BookId", "rich_text": {"equals": bookId}}
-    response = client.databases.query(database_id=database_id, filter=filter)
-    for result in response["results"]:
-        try:
-            client.blocks.delete(block_id=result["id"])
-        except Exception as e:
-            print(f"删除块时出错: {e}")
+    try:
+        response = client.databases.query(database_id=database_id, filter=filter)
+        for result in response["results"]:
+            try:
+                client.blocks.delete(block_id=result["id"])
+            except Exception as e:
+                print(f"删除块时出错: {e}")
+    except AttributeError:
+        print("Warning: notion-client API compatibility issue.")
 
 @retry(stop_max_attempt_number=3, wait_fixed=5000,retry_on_exception=refresh_token)
 def get_chapter_info(bookId):
@@ -216,15 +219,17 @@ def get_notebooklist():
 def get_sort():
     """获取database中的最新时间"""
     filter = {"property": "Sort", "number": {"is_not_empty": True}}
-    sorts = [
-        {
-            "property": "Sort",
-            "direction": "descending",
-        }
-    ]
-    response = client.databases.query(
-        database_id=database_id, filter=filter, sorts=sorts, page_size=1
-    )
+    sorts = [{"property": "Sort", "direction": "descending"}]
+    try:
+        response = client.databases.query(
+            database_id=database_id, filter=filter, sorts=sorts, page_size=1
+        )
+        if len(response.get("results")) == 1:
+            return response.get("results")[0].get("properties").get("Sort").get("number")
+        return 0
+    except AttributeError:
+        print("Warning: notion-client API compatibility issue.")
+        return 0
     if len(response.get("results")) == 1:
         return response.get("results")[0].get("properties").get("Sort").get("number")
     return 0
